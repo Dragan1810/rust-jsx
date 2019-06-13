@@ -1,0 +1,7 @@
+[package]
+name = "rust-jsx"
+version = "0.1.0"
+authors = ["Dragan <dragan.novakovic@bridgewaterlabs.com>"]
+edition = "2018"
+
+[dependencies]
