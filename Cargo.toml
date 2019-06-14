@@ -1,7 +1,9 @@
 [package]
-name = "rust-jsx"
+name = "rust_jsx"
 version = "0.1.0"
 authors = ["Dragan <dragan.novakovic@bridgewaterlabs.com>"]
 edition = "2018"
 
 [dependencies]
+quote = "0.6.12"
+proc-macro2 = "0.4.30"

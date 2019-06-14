@@ -1,58 +1,20 @@
-//! Snax is [JSX][jsx-intro] for Rust.
-//!
-//! More specifically, it's a library for proc macro authors who want JSX-like
-//! syntax in their libraries.
-//!
-//! For the current best example of how to use Snax, check out the [current
-//! source of the ritz crate][ritz-github].
-//!
-//! ## Requirements
-//! Snax requires Rust 1.32 or newer.
-//!
-//! ## License
-//! Snax is available under the MIT license. See [LICENSE.txt](LICENSE.txt) for
-//! details.
-//!
-//! [jsx-intro]: https://reactjs.org/docs/introducing-jsx.html
-//! [ritz-github]: https://github.com/LPGhatguy/ritz
-
 mod tokenizer;
 
-use proc_macro2::{Ident, TokenStream, TokenTree};
-
 use crate::tokenizer::{parse_html_token, HtmlOpenToken, HtmlToken, TokenizeError};
-
+use proc_macro2::{Ident, TokenStream, TokenTree};
 /// An attribute that's present on either a [`SnaxTag`] or a
 /// [`SnaxSelfClosingTag`].
-///
-/// Attributes can only be `Simple` right now, which is a name-value pair where
-/// the name is a fixed ident and the value is either a Literal or a Group.
-///
-/// In the future, snax_syntax will support attribute spreading. See [issue
-/// #4](https://github.com/LPGhatguy/snax/issues/4) for more details and
-/// progress updates.
 ///
 /// [`SnaxTag`]: struct.SnaxTag.html
 /// [`SnaxSelfClosingTag`]: struct.SnaxSelfClosingTag.html
 #[derive(Debug)]
 pub enum SnaxAttribute {
-    /// A name-value pair describing a property.
-    ///
     /// ```html
     /// <div foo="bar" />
     ///      ^^^^^^^^^
     ///      SnaxAttribute::Simple {
     ///          name: Ident(foo),
     ///          value: TokenTree("bar"),
-    ///      }
-    /// ```
-    ///
-    /// ```html
-    /// <div hello={ "world" }>"hey there"</div>
-    ///      ^^^^^^^^^^^^^^^^^
-    ///      SnaxAttribute::Simple {
-    ///          name: Ident(hello),
-    ///          value: TokenTree({ "world" }),
     ///      }
     /// ```
     Simple { name: Ident, value: TokenTree },
@@ -86,9 +48,6 @@ pub enum SnaxItem {
     /// An empty tag, which can only have attributes.
     SelfClosingTag(SnaxSelfClosingTag),
 
-    /// A fragment, containing a list of zero or more children.
-    Fragment(SnaxFragment),
-
     /// A block of content, which can contain any Rust expression.
     Content(TokenTree),
 }
@@ -100,7 +59,6 @@ impl PartialEq for SnaxItem {
         match (self, other) {
             (Tag(this), Tag(other)) => this == other,
             (SelfClosingTag(this), SelfClosingTag(other)) => this == other,
-            (Fragment(this), Fragment(other)) => this == other,
             (Content(this), Content(other)) => this.to_string() == other.to_string(),
             _ => false,
         }
@@ -134,22 +92,6 @@ pub struct SnaxSelfClosingTag {
     pub attributes: Vec<SnaxAttribute>,
 }
 
-/// A fragment, which only contains children.
-///
-/// ```html
-/// <>
-///     <span>Hey</span>
-///     <span>there!</span>
-/// </>
-/// ```
-///
-/// This syntax comes from JSX, and in frameworks like React, it's expected that
-/// the children of a fragment will be merged into the fragment's parent.
-#[derive(Debug, PartialEq)]
-pub struct SnaxFragment {
-    pub children: Vec<SnaxItem>,
-}
-
 #[derive(Debug)]
 pub enum ParseError {
     UnexpectedEnd,
@@ -178,7 +120,6 @@ macro_rules! expect_end {
 #[derive(Debug)]
 enum OpenToken {
     Tag(HtmlOpenToken),
-    Fragment,
 }
 
 /// Attempts to parse a `proc_macro2::TokenStream` into a `SnaxItem`.
@@ -198,11 +139,6 @@ pub fn parse(input_stream: TokenStream) -> Result<SnaxItem, ParseError> {
 
                 let opening_tag = match open_token {
                     OpenToken::Tag(tag) => tag,
-                    OpenToken::Fragment => {
-                        return Err(ParseError::UnexpectedItem(HtmlToken::CloseTag(
-                            closing_tag.clone(),
-                        )))
-                    }
                 };
 
                 assert_eq!(opening_tag.name, closing_tag.name);
@@ -223,33 +159,7 @@ pub fn parse(input_stream: TokenStream) -> Result<SnaxItem, ParseError> {
                     }
                 }
             }
-            HtmlToken::OpenFragment => {
-                tag_stack.push((OpenToken::Fragment, Vec::new()));
-            }
-            HtmlToken::CloseFragment => {
-                let (open_token, children) = tag_stack
-                    .pop()
-                    .ok_or_else(|| ParseError::UnexpectedItem(HtmlToken::CloseFragment))?;
 
-                match open_token {
-                    OpenToken::Fragment => {}
-                    OpenToken::Tag(_) => {
-                        return Err(ParseError::UnexpectedItem(HtmlToken::CloseFragment))
-                    }
-                }
-
-                let fragment = SnaxFragment { children };
-
-                match tag_stack.last_mut() {
-                    None => {
-                        expect_end!(input);
-                        return Ok(SnaxItem::Fragment(fragment));
-                    }
-                    Some((_, parent_children)) => {
-                        parent_children.push(SnaxItem::Fragment(fragment));
-                    }
-                }
-            }
             HtmlToken::SelfClosingTag(self_closing_tag) => {
                 let tag = SnaxSelfClosingTag {
                     name: self_closing_tag.name,

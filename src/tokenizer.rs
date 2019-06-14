@@ -1,7 +1,4 @@
-use proc_macro2::{
-    TokenTree,
-    Ident,
-};
+use proc_macro2::{Ident, TokenTree};
 
 use crate::SnaxAttribute;
 
@@ -10,9 +7,7 @@ pub enum HtmlToken {
     OpenTag(HtmlOpenToken),
     CloseTag(HtmlCloseToken),
     SelfClosingTag(HtmlSelfClosingToken),
-    Textish(HtmlTextishToken),
-    OpenFragment,
-    CloseFragment,
+    Textish(HtmlTextishToken)
 }
 
 #[derive(Debug)]
@@ -57,28 +52,23 @@ macro_rules! expect_next {
     };
 }
 
-pub fn parse_html_token(mut input: impl Iterator<Item = TokenTree>) -> Result<HtmlToken, TokenizeError> {
+pub fn parse_html_token(
+    mut input: impl Iterator<Item = TokenTree>,
+) -> Result<HtmlToken, TokenizeError> {
     match input.next().ok_or(TokenizeError::UnexpectedEnd)? {
         TokenTree::Punct(ref punct) if punct.as_char() == '<' => {
             match input.next().ok_or(TokenizeError::UnexpectedEnd)? {
                 TokenTree::Punct(ref punct) if punct.as_char() == '/' => {
                     match input.next().ok_or(TokenizeError::UnexpectedEnd)? {
-                        TokenTree::Punct(ref punct) if punct.as_char() == '>' => {
-                            Ok(HtmlToken::CloseFragment)
-                        },
                         TokenTree::Ident(name) => {
-                            expect_next!(input, TokenTree::Punct(ref punct) if punct.as_char() == '>');
 
-                            Ok(HtmlToken::CloseTag(HtmlCloseToken {
-                                name,
-                            }))
-                        },
+                            expect_next!(input, TokenTree::Punct(ref punct) if punct.as_char() == '>');
+                            Ok(HtmlToken::CloseTag(HtmlCloseToken { name }))
+                        }
                         unexpected => return Err(TokenizeError::UnexpectedToken(unexpected)),
                     }
-                },
-                TokenTree::Punct(ref punct) if punct.as_char() == '>' => {
-                    Ok(HtmlToken::OpenFragment)
-                },
+                }
+                
                 TokenTree::Ident(name) => {
                     let mut attributes = Vec::new();
 
@@ -93,18 +83,17 @@ pub fn parse_html_token(mut input: impl Iterator<Item = TokenTree>) -> Result<Ht
                                             name: attribute_name,
                                             value,
                                         });
-                                    },
-                                    unexpected => return Err(TokenizeError::UnexpectedToken(unexpected)),
+                                    }
+                                    unexpected => {
+                                        return Err(TokenizeError::UnexpectedToken(unexpected))
+                                    }
                                 }
-                            },
+                            }
                             TokenTree::Punct(ref punct) if punct.as_char() == '>' => {
                                 // Opening tag
 
-                                return Ok(HtmlToken::OpenTag(HtmlOpenToken {
-                                    name,
-                                    attributes,
-                                }));
-                            },
+                                return Ok(HtmlToken::OpenTag(HtmlOpenToken { name, attributes }));
+                            }
                             TokenTree::Punct(ref punct) if punct.as_char() == '/' => {
                                 // Self-closing tag
 
@@ -114,14 +103,14 @@ pub fn parse_html_token(mut input: impl Iterator<Item = TokenTree>) -> Result<Ht
                                     name,
                                     attributes,
                                 }));
-                            },
+                            }
                             unexpected => return Err(TokenizeError::UnexpectedToken(unexpected)),
                         }
                     }
-                },
+                }
                 unexpected => return Err(TokenizeError::UnexpectedToken(unexpected)),
             }
-        },
+        }
         content @ TokenTree::Literal(_) => Ok(HtmlToken::Textish(HtmlTextishToken { content })),
         content @ TokenTree::Group(_) => Ok(HtmlToken::Textish(HtmlTextishToken { content })),
         unexpected => return Err(TokenizeError::UnexpectedToken(unexpected)),
