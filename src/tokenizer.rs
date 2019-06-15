@@ -7,7 +7,7 @@ pub enum HtmlToken {
     OpenTag(HtmlOpenToken),
     CloseTag(HtmlCloseToken),
     SelfClosingTag(HtmlSelfClosingToken),
-    Textish(HtmlTextishToken)
+    Textish(HtmlTextishToken),
 }
 
 #[derive(Debug)]
@@ -68,10 +68,9 @@ pub fn parse_html_token(
                         unexpected => return Err(TokenizeError::UnexpectedToken(unexpected)),
                     }
                 }
-                
+
                 TokenTree::Ident(name) => {
                     let mut attributes = Vec::new();
-
                     loop {
                         match input.next().ok_or(TokenizeError::UnexpectedEnd)? {
                             TokenTree::Ident(attribute_name) => {

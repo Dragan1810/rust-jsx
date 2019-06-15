@@ -83,9 +83,6 @@ pub struct SnaxTag {
 /// <meta name="foo" value="bar" />
 /// ```
 ///
-/// Note that snax_syntax does not support automatically closing unclosed
-/// tags like HTML does, such as `<br>`. These tags need to be written as
-/// `<br />` in order to simplify parsing.
 #[derive(Debug, PartialEq)]
 pub struct SnaxSelfClosingTag {
     pub name: Ident,
