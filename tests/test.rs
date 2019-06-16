@@ -73,6 +73,7 @@ fn empty_div_comment() {
 fn empty_with_literal_attributes() {
     let input = quote!(<div foo="bar" baz="qux"></div>);
     let output = rust_jsx::parse(input).unwrap();
+
     let expected = SnaxItem::Tag(SnaxTag {
         name: Ident::new("div", Span::call_site()),
         attributes: vec![
